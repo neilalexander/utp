@@ -91,8 +91,7 @@ type read struct {
 
 type syn struct {
 	seq_nr, conn_id uint16
-	// net.Addr.String() of a Socket's real net.PacketConn.
-	addr string
+	addr            net.Addr
 }
 
 var (

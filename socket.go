@@ -102,22 +102,6 @@ func (s *Socket) unusedRead(read read) {
 	}
 }
 
-func (s *Socket) strNetAddr(str string) (a net.Addr) {
-	var err error
-	switch n := s.network(); n {
-	case "udp":
-		a, err = net.ResolveUDPAddr(n, str)
-	case "inproc":
-		a, err = inproc.ResolveAddr(n, str)
-	default:
-		panic(n)
-	}
-	if err != nil {
-		panic(err)
-	}
-	return
-}
-
 func (s *Socket) pushBacklog(syn syn) {
 	if _, ok := s.backlog[syn]; ok {
 		return
@@ -131,7 +115,7 @@ func (s *Socket) pushBacklog(syn syn) {
 		delete(s.backlog, k)
 		// A syn is sent on the remote's recv_id, so this is where we can send
 		// the reset.
-		s.reset(s.strNetAddr(k.addr), k.seq_nr, k.conn_id)
+		s.reset(k.addr, k.seq_nr, k.conn_id)
 	}
 	s.backlog[syn] = struct{}{}
 	s.backlogChanged()
@@ -226,7 +210,7 @@ func (s *Socket) handleReceivedPacket(p read) {
 		s.pushBacklog(syn{
 			seq_nr:  h.SeqNr,
 			conn_id: h.ConnID,
-			addr:    p.from.String(),
+			addr:    p.from,
 		})
 		return
 	case stReset:
@@ -486,7 +470,7 @@ func (s *Socket) nextSyn() (syn syn, err error) {
 // ACK a SYN, and return a new Conn for it. ok is false if the SYN is bad, and
 // the Conn invalid.
 func (s *Socket) ackSyn(syn syn) (c *Conn, ok bool) {
-	c = s.newConn(s.strNetAddr(syn.addr))
+	c = s.newConn(syn.addr)
 	c.send_id = syn.conn_id
 	c.recv_id = c.send_id + 1
 	c.seq_nr = uint16(rand.Int())
@@ -494,10 +478,10 @@ func (s *Socket) ackSyn(syn syn) (c *Conn, ok bool) {
 	c.ack_nr = syn.seq_nr
 	c.synAcked = true
 	c.updateCanWrite()
-	if !s.registerConn(c.recv_id, resolvedAddrStr(syn.addr), c) {
+	if !s.registerConn(c.recv_id, resolvedAddrStr(syn.addr.String()), c) {
 		// SYN that triggered this accept duplicates existing connection.
 		// Ack again in case the SYN was a resend.
-		c = s.conns[connKey{resolvedAddrStr(syn.addr), c.recv_id}]
+		c = s.conns[connKey{resolvedAddrStr(syn.addr.String()), c.recv_id}]
 		if c.send_id != syn.conn_id {
 			panic(":|")
 		}
