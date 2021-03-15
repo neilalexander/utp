@@ -348,6 +348,10 @@ func (s *Socket) Dial(addr string) (net.Conn, error) {
 	return s.DialContext(context.Background(), "", addr)
 }
 
+func (s *Socket) DialAddr(netAddr net.Addr) (net.Conn, error) {
+	return s.DialAddrContext(context.Background(), netAddr)
+}
+
 func (s *Socket) resolveAddr(network, addr string) (net.Addr, error) {
 	n := s.network()
 	if network != "" {
@@ -394,6 +398,10 @@ func (s *Socket) DialContext(ctx context.Context, network, addr string) (nc net.
 		return
 	}
 
+	return s.DialAddrContext(ctx, netAddr)
+}
+
+func (s *Socket) DialAddrContext(ctx context.Context, netAddr net.Addr) (nc net.Conn, err error) {
 	c, err := s.startOutboundConn(netAddr)
 	if err != nil {
 		return
