@@ -47,6 +47,22 @@ type Socket struct {
 	// here. This is because reading is done in its own goroutine to dispatch
 	// to uTP Conns.
 	ReadErr error
+
+	onAttach func(remote net.Addr)
+	onDetach func(remote net.Addr)
+	onMutex  sync.RWMutex
+}
+
+func (s *Socket) OnAttach(f func(remote net.Addr)) {
+	s.onMutex.Lock()
+	defer s.onMutex.Unlock()
+	s.onAttach = f
+}
+
+func (s *Socket) OnDetach(f func(remote net.Addr)) {
+	s.onMutex.Lock()
+	defer s.onMutex.Unlock()
+	s.onDetach = f
 }
 
 func listenPacket(network, addr string) (pc net.PacketConn, err error) {
@@ -436,6 +452,9 @@ func (s *Socket) registerConn(recvID uint16, remoteAddr resolvedAddrStr, c *Conn
 	}
 	c.connKey = key
 	s.conns[key] = c
+	s.onMutex.RLock()
+	defer s.onMutex.RUnlock()
+	go s.onAttach(c.remoteSocketAddr)
 	return true
 }
 
