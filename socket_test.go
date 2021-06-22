@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/anacrolix/missinggo"
 	"github.com/anacrolix/missinggo/inproc"
 	"github.com/bradfitz/iter"
 	"github.com/stretchr/testify/assert"
@@ -99,7 +98,7 @@ func TestUTPRawConn(t *testing.T) {
 	utpPeer := func() net.Conn {
 		s, _ := NewSocket("inproc", "")
 		defer s.Close()
-		ret, err := s.Dial(fmt.Sprintf("localhost:%d", missinggo.AddrPort(l.Addr())))
+		ret, err := s.Dial(fmt.Sprintf("localhost:%d", AddrPort(l.Addr())))
 		require.NoError(t, err)
 		return ret
 	}()
@@ -133,7 +132,7 @@ func TestUTPRawConn(t *testing.T) {
 			}
 		}
 	}()
-	udpAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("localhost:%d", missinggo.AddrPort(l.Addr())))
+	udpAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("localhost:%d", AddrPort(l.Addr())))
 	if err != nil {
 		t.Fatal(err)
 	}

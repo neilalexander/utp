@@ -3,14 +3,12 @@ package utp
 import (
 	"log"
 	"time"
-
-	"github.com/anacrolix/missinggo"
 )
 
 type send struct {
-	acked       missinggo.Event
+	acked       Event
 	payloadSize uint32
-	started     missinggo.MonotonicTime
+	started     MonotonicTime
 	_type       st
 	connID      uint16
 	payload     []byte
@@ -27,7 +25,7 @@ type send struct {
 func (s *send) Ack() (latency time.Duration, first bool) {
 	first = !s.acked.IsSet()
 	if first {
-		latency = missinggo.MonotonicSince(s.started)
+		latency = MonotonicSince(s.started)
 	}
 	if s.payload != nil {
 		sendBufferPool.Put(s.payload[:0:minMTU])
@@ -48,7 +46,7 @@ func (s *send) timedOut() {
 func (s *send) timeoutResend() {
 	mu.Lock()
 	defer mu.Unlock()
-	if missinggo.MonotonicSince(s.started) >= writeTimeout {
+	if MonotonicSince(s.started) >= writeTimeout {
 		s.timedOut()
 		return
 	}

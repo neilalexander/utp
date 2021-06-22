@@ -2,13 +2,11 @@ package utp
 
 import (
 	"time"
-
-	"github.com/anacrolix/missinggo"
 )
 
 type deadline struct {
 	t      time.Time
-	passed missinggo.Event
+	passed Event
 	timer  *time.Timer
 }
 

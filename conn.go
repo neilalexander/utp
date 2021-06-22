@@ -7,8 +7,6 @@ import (
 	"log"
 	"net"
 	"time"
-
-	"github.com/anacrolix/missinggo"
 )
 
 // Conn is a uTP stream and implements net.Conn. It owned by a Socket, which
@@ -24,7 +22,7 @@ type Conn struct {
 
 	// Data waiting to be Read.
 	readBuf         []byte
-	readBufNotEmpty missinggo.Event
+	readBufNotEmpty Event
 
 	socket           *Socket
 	remoteSocketAddr net.Addr
@@ -34,12 +32,12 @@ type Conn struct {
 	created time.Time
 
 	synAcked  bool // Syn is acked by the acceptor. Initiator also tracks it.
-	gotFin    missinggo.Event
-	wroteFin  missinggo.Event
+	gotFin    Event
+	wroteFin  Event
 	err       error
-	closed    missinggo.Event
-	destroyed missinggo.Event
-	canWrite  missinggo.Event
+	closed    Event
+	destroyed Event
+	canWrite  Event
 
 	unackedSends []*send
 	// Inbound payloads, the first is ack_nr+1.
@@ -206,7 +204,7 @@ func (c *Conn) write(_type st, connID uint16, payload []byte, seqNr uint16) (n i
 	}
 	send := &send{
 		payloadSize: uint32(len(payload)),
-		started:     missinggo.MonotonicNow(),
+		started:     MonotonicNow(),
 		_type:       _type,
 		connID:      connID,
 		payload:     payload,
@@ -308,7 +306,7 @@ func (c *Conn) seqSend(seqNr uint16) *send {
 
 func (c *Conn) resendTimeout() time.Duration {
 	l := c.latency()
-	ret := missinggo.JitterDuration(3*l, l)
+	ret := JitterDuration(3*l, l)
 	return ret
 }
 
@@ -463,7 +461,7 @@ func (c *Conn) waitAck(seq uint16) {
 	if send == nil {
 		return
 	}
-	missinggo.WaitEvents(&mu, &send.acked, &c.destroyed)
+	WaitEvents(&mu, &send.acked, &c.destroyed)
 	return
 }
 
@@ -544,7 +542,7 @@ func (c *Conn) Read(b []byte) (n int, err error) {
 			err = errTimeout
 			return
 		}
-		missinggo.WaitEvents(&mu,
+		WaitEvents(&mu,
 			&c.gotFin,
 			&c.closed,
 			&c.destroyed,
@@ -598,7 +596,7 @@ func (c *Conn) Write(p []byte) (n int, err error) {
 			p = p[n1:]
 			continue
 		}
-		missinggo.WaitEvents(&mu,
+		WaitEvents(&mu,
 			&c.wroteFin,
 			&c.closed,
 			&c.destroyed,

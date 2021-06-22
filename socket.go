@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/anacrolix/missinggo"
 	"github.com/anacrolix/missinggo/inproc"
 	"github.com/anacrolix/missinggo/pproffd"
 )
@@ -33,11 +32,11 @@ type Socket struct {
 	pc    net.PacketConn
 	conns map[connKey]*Conn
 
-	backlogNotEmpty missinggo.Event
+	backlogNotEmpty Event
 	backlog         map[syn]struct{}
 
-	closed    missinggo.Event
-	destroyed missinggo.Event
+	closed    Event
+	destroyed Event
 
 	wgReadWrite sync.WaitGroup
 
@@ -339,7 +338,7 @@ func (s *Socket) newConn(addr net.Addr) (c *Conn) {
 		remoteSocketAddr: addr,
 		created:          time.Now(),
 	}
-	c.sendPendingSendSendStateTimer = missinggo.StoppedFuncTimer(c.sendPendingSendStateTimerCallback)
+	c.sendPendingSendSendStateTimer = StoppedFuncTimer(c.sendPendingSendStateTimerCallback)
 	c.packetReadTimeoutTimer = time.AfterFunc(packetReadTimeout, c.receivePacketTimeoutCallback)
 	return
 }
@@ -468,7 +467,7 @@ func (s *Socket) backlogChanged() {
 
 func (s *Socket) nextSyn() (syn syn, err error) {
 	for {
-		missinggo.WaitEvents(&mu, &s.closed, &s.backlogNotEmpty, &s.destroyed)
+		WaitEvents(&mu, &s.closed, &s.backlogNotEmpty, &s.destroyed)
 		if s.closed.IsSet() {
 			err = errClosed
 			return

@@ -31,7 +31,7 @@ const (
 	backlog = 50
 
 	// IPv6 min MTU is 1280, -40 for IPv6 header, and ~8 for fragment header?
-	minMTU = 1438 // Why?
+	minMTU = 8192 // Why?
 	// uTP header of 20, +2 for the next extension, and an optional selective
 	// ACK.
 	maxHeaderSize  = 20 + 2 + (((maxUnackedInbound+7)/8)+3)/4*4
@@ -47,7 +47,7 @@ const (
 	// How long to wait before sending a state packet, after one is required.
 	// This prevents spamming a state packet for every packet received, and
 	// non-state packets that are being sent also fill the role.
-	pendingSendStateDelay = 500 * time.Microsecond
+	pendingSendStateDelay = 500 * time.Millisecond
 )
 
 var (
@@ -68,7 +68,7 @@ var (
 
 func setDefaultDurations() {
 	// An approximate upper bound for most connections across the world.
-	initialLatency = 400 * time.Millisecond
+	initialLatency = 2 * time.Second
 	// Getting no reply for this period for a packet, we can probably rule out
 	// latency and client lag.
 	writeTimeout = 15 * time.Second
