@@ -9,9 +9,6 @@ import (
 	"net"
 	"sync"
 	"time"
-
-	"github.com/anacrolix/missinggo/inproc"
-	"github.com/anacrolix/missinggo/pproffd"
 )
 
 var (
@@ -65,9 +62,6 @@ func (s *Socket) OnDetach(f func(remote net.Addr)) {
 }
 
 func listenPacket(network, addr string) (pc net.PacketConn, err error) {
-	if network == "inproc" {
-		return inproc.ListenPacket(network, addr)
-	}
 	return net.ListenPacket(network, addr)
 }
 
@@ -356,9 +350,6 @@ func (s *Socket) resolveAddr(network, addr string) (net.Addr, error) {
 	if network != "" {
 		n = network
 	}
-	if n == "inproc" {
-		return inproc.ResolveAddr(n, addr)
-	}
 	return net.ResolveUDPAddr(n, addr)
 }
 
@@ -424,7 +415,8 @@ func (s *Socket) DialAddrContext(ctx context.Context, netAddr net.Addr) (nc net.
 	mu.Lock()
 	c.updateCanWrite()
 	mu.Unlock()
-	nc = pproffd.WrapNetConn(c)
+	//nc = pproffd.WrapNetConn(c)
+	nc = c
 	return
 }
 
