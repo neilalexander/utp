@@ -30,7 +30,7 @@ type Socket struct {
 	conns map[connKey]*Conn
 
 	backlogNotEmpty Event
-	backlog         map[syn]struct{}
+	backlog         map[syn]net.Addr
 
 	closed    Event
 	destroyed Event
@@ -83,7 +83,7 @@ func NewSocket(network, addr string) (s *Socket, err error) {
 // net.PacketConn's Close method, or use NetSocketFromPacketConnNoClose.
 func NewSocketFromPacketConn(pc net.PacketConn) (s *Socket, err error) {
 	s = &Socket{
-		backlog:     make(map[syn]struct{}, backlog),
+		backlog:     make(map[syn]net.Addr, backlog),
 		pc:          pc,
 		unusedReads: make(chan read, 100),
 		wgReadWrite: sync.WaitGroup{},
@@ -111,22 +111,22 @@ func (s *Socket) unusedRead(read read) {
 	}
 }
 
-func (s *Socket) pushBacklog(syn syn) {
+func (s *Socket) pushBacklog(syn syn, addr net.Addr) {
 	if _, ok := s.backlog[syn]; ok {
 		return
 	}
 	// Pop a pseudo-random syn to make room. TODO: Use missinggo/orderedmap,
 	// coz that's what is wanted here.
-	for k := range s.backlog {
+	for k, v := range s.backlog {
 		if len(s.backlog) < backlog {
 			break
 		}
 		delete(s.backlog, k)
 		// A syn is sent on the remote's recv_id, so this is where we can send
 		// the reset.
-		s.reset(k.addr, k.seq_nr, k.conn_id)
+		s.reset(v, k.seq_nr, k.conn_id)
 	}
-	s.backlog[syn] = struct{}{}
+	s.backlog[syn] = addr
 	s.backlogChanged()
 }
 
@@ -219,8 +219,8 @@ func (s *Socket) handleReceivedPacket(p read) {
 		s.pushBacklog(syn{
 			seq_nr:  h.SeqNr,
 			conn_id: h.ConnID,
-			addr:    p.from,
-		})
+			addr:    p.from.String(),
+		}, p.from)
 		return
 	case stReset:
 		// Could be a late arriving packet for a Conn we're already done with.
@@ -457,7 +457,7 @@ func (s *Socket) backlogChanged() {
 	}
 }
 
-func (s *Socket) nextSyn() (syn syn, err error) {
+func (s *Socket) nextSyn() (syn syn, addr net.Addr, err error) {
 	for {
 		WaitEvents(&mu, &s.closed, &s.backlogNotEmpty, &s.destroyed)
 		if s.closed.IsSet() {
@@ -468,8 +468,9 @@ func (s *Socket) nextSyn() (syn syn, err error) {
 			err = s.ReadErr
 			return
 		}
-		for k := range s.backlog {
+		for k, v := range s.backlog {
 			syn = k
+			addr = v
 			delete(s.backlog, k)
 			s.backlogChanged()
 			return
@@ -479,8 +480,8 @@ func (s *Socket) nextSyn() (syn syn, err error) {
 
 // ACK a SYN, and return a new Conn for it. ok is false if the SYN is bad, and
 // the Conn invalid.
-func (s *Socket) ackSyn(syn syn) (c *Conn, ok bool) {
-	c = s.newConn(syn.addr)
+func (s *Socket) ackSyn(syn syn, addr net.Addr) (c *Conn, ok bool) {
+	c = s.newConn(addr)
 	c.send_id = syn.conn_id
 	c.recv_id = c.send_id + 1
 	c.seq_nr = uint16(rand.Int())
@@ -488,10 +489,10 @@ func (s *Socket) ackSyn(syn syn) (c *Conn, ok bool) {
 	c.ack_nr = syn.seq_nr
 	c.synAcked = true
 	c.updateCanWrite()
-	if !s.registerConn(c.recv_id, resolvedAddrStr(syn.addr.String()), c) {
+	if !s.registerConn(c.recv_id, resolvedAddrStr(addr.String()), c) {
 		// SYN that triggered this accept duplicates existing connection.
 		// Ack again in case the SYN was a resend.
-		c = s.conns[connKey{resolvedAddrStr(syn.addr.String()), c.recv_id}]
+		c = s.conns[connKey{resolvedAddrStr(addr.String()), c.recv_id}]
 		if c.send_id != syn.conn_id {
 			panic(":|")
 		}
@@ -508,11 +509,11 @@ func (s *Socket) Accept() (net.Conn, error) {
 	mu.Lock()
 	defer mu.Unlock()
 	for {
-		syn, err := s.nextSyn()
+		syn, addr, err := s.nextSyn()
 		if err != nil {
 			return nil, err
 		}
-		c, ok := s.ackSyn(syn)
+		c, ok := s.ackSyn(syn, addr)
 		if ok {
 			c.updateCanWrite()
 			return c, nil

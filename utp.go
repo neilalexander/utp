@@ -89,7 +89,7 @@ type read struct {
 
 type syn struct {
 	seq_nr, conn_id uint16
-	addr            net.Addr
+	addr            string
 }
 
 var (
