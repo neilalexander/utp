@@ -454,7 +454,9 @@ func (s *Socket) registerConn(recvID uint16, remoteAddr resolvedAddrStr, c *Conn
 	s.conns[key] = c
 	s.onMutex.RLock()
 	defer s.onMutex.RUnlock()
-	go s.onAttach(c.remoteSocketAddr)
+	if s.onAttach != nil {
+		go s.onAttach(c.remoteSocketAddr)
+	}
 	return true
 }
 
