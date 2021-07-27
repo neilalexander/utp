@@ -616,5 +616,7 @@ func (c *Conn) detach() {
 	s.lazyDestroy()
 	s.onMutex.RLock()
 	defer s.onMutex.RUnlock()
-	go s.onDetach(c.remoteSocketAddr)
+	if s.onDetach != nil {
+		go s.onDetach(c.remoteSocketAddr)
+	}
 }
